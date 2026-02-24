@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 import chess
 
 from .shannon import ShannonEvaluator as ShannonEvaluator
@@ -12,9 +14,6 @@ PIECE_VALUES = {
 }
 
 
-class Evaluator:
-    def __init__(self):
-        pass
-
-    def evaluate(self, board: chess.Board) -> int:
-        raise NotImplementedError
+class Evaluator(ABC):
+    @abstractmethod
+    def evaluate(self, board: chess.Board) -> int: ...

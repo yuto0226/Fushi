@@ -98,16 +98,15 @@ class ShannonEvaluator(Evaluator):
         return weakness
 
     def _evaluate_mobility(self, board: chess.Board) -> float:
-        white_mobility = board.legal_moves.count() if board.turn == chess.WHITE else 0
-
-        board.push(chess.Move.null())
-        black_mobility = board.legal_moves.count() if board.turn == chess.BLACK else 0
-        board.pop()
-
-        if board.turn == chess.BLACK:
+        if board.turn == chess.WHITE:
+            white_mobility = board.legal_moves.count()
+            board.push(chess.Move.null())
+            black_mobility = board.legal_moves.count()
+            board.pop()
+        else:
             black_mobility = board.legal_moves.count()
             board.push(chess.Move.null())
             white_mobility = board.legal_moves.count()
             board.pop()
 
-        return white_mobility - black_mobility
+        return float(white_mobility - black_mobility)

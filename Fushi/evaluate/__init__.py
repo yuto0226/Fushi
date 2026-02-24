@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 
 import chess
 
-from .shannon import ShannonEvaluator as ShannonEvaluator
-
 PIECE_VALUES = {
     chess.KING: 10000,
     chess.QUEEN: 1000,
@@ -17,3 +15,6 @@ PIECE_VALUES = {
 class Evaluator(ABC):
     @abstractmethod
     def evaluate(self, board: chess.Board) -> int: ...
+
+
+from .shannon import ShannonEvaluator as ShannonEvaluator  # noqa: E402

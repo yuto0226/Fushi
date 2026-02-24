@@ -4,8 +4,6 @@ from typing import Callable
 
 import chess
 
-from .basic import BasicSearcher as BasicSearcher
-
 
 @dataclass
 class SearchInfo:
@@ -49,3 +47,6 @@ class Searcher(ABC):
         *,
         on_info: InfoCallback | None = None,
     ) -> SearchResult: ...
+
+
+from .basic import BasicSearcher as BasicSearcher  # noqa: E402

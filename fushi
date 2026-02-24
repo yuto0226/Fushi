@@ -1,12 +1,21 @@
 #!/usr/bin/env -S python3 -u
 from Fushi.engine import Engine
 from Fushi.uci import UCIHandler
-from Fushi.evaluate import ShannonEvaluator
+from Fushi.evaluate import ShannonEvaluator, WeightedEvaluator
 from Fushi.search import BasicSearcher
 
 
 def main():
-    engine = Engine(BasicSearcher(ShannonEvaluator()))
+    evaluator = WeightedEvaluator(
+        [
+            (ShannonEvaluator(), 1.0),
+            # (PSTEvaluator(),     0.3),
+            # (MobilityEvaluator(), 0.1),
+            # (KingActivityEvaluator(), 0.5),
+        ]
+    )
+
+    engine = Engine(BasicSearcher(evaluator))
     uci = UCIHandler(engine)
 
     uci.run()

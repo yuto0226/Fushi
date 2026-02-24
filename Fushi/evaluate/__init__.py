@@ -18,3 +18,16 @@ class Evaluator(ABC):
 
 
 from .shannon import ShannonEvaluator as ShannonEvaluator  # noqa: E402
+
+
+class WeightedEvaluator(Evaluator):
+    def __init__(self, components: list[tuple[Evaluator, float]]) -> None:
+        if not components:
+            raise ValueError("At least one evaluator is required")
+        self._components = components
+
+    def evaluate(self, board: chess.Board) -> int:
+        return round(sum(e.evaluate(board) * w for e, w in self._components))
+
+
+# TODO: PhaseEvaluator

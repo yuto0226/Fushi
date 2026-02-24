@@ -55,3 +55,4 @@ class Searcher(ABC):
 
 
 from .basic import BasicSearcher as BasicSearcher  # noqa: E402
+from .brute_force import BruteForceSearcher as BruteForceSearcher  # noqa: E402

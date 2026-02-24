@@ -2,7 +2,7 @@
 from Fushi.engine import Engine
 from Fushi.uci import UCIHandler
 from Fushi.evaluate import ShannonEvaluator, WeightedEvaluator
-from Fushi.search import BasicSearcher
+from Fushi.search import BruteForceSearcher
 
 
 def main():
@@ -15,7 +15,7 @@ def main():
         ]
     )
 
-    engine = Engine(BasicSearcher(evaluator))
+    engine = Engine(BruteForceSearcher(evaluator))
     uci = UCIHandler(engine)
 
     uci.run()

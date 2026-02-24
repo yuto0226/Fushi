@@ -14,5 +14,5 @@ class Evaluator:
     def __init__(self):
         pass
 
-    def evalute(self, board: chess.Board) -> int:
+    def evaluate(self, board: chess.Board) -> int:
         raise NotImplementedError

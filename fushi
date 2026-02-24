@@ -1,0 +1,14 @@
+#!.venv/bin/python3
+from Fushi.engine import Engine
+from Fushi.uci import UCIHandler
+
+
+def main():
+    engine = Engine()
+    uci = UCIHandler(engine)
+
+    uci.run()
+
+
+if __name__ == "__main__":
+    main()

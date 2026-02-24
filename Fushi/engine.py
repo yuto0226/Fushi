@@ -1,6 +1,8 @@
-import random
+import sys
 
 import chess
+
+from .evaluator.shannon import ShannonEvaluator
 
 ENGINE_NAME = "Fushi"
 ENGINE_AUTHOR = "Yuto"
@@ -16,6 +18,7 @@ class Engine:
         self.debug = debug
 
         self.board = chess.Board()
+        self.evalutor = ShannonEvaluator()
 
     def name(self):
         return self._name
@@ -55,14 +58,27 @@ class Engine:
                     continue
 
     def search(self) -> chess.Move | None:
+        self._stop = False
+
         legal_moves = list(self.board.legal_moves)
-        if not legal_moves:
-            return None
 
-        if not self._stop:
-            self._stop = True
+        best_move = None
+        best_score = -sys.maxsize
 
-        return random.choice(legal_moves)
+        for move in legal_moves:
+            if self.stopping():
+                break
 
-    def evaluate(self):
-        pass
+            self.board.push(move)
+            score = self.evaluate()
+            print(f"info score cp {score} depth 1 pv {move.uci()}")
+            self.board.pop()
+
+            if score > best_score:
+                best_move = move
+                best_score = score
+
+        return best_move
+
+    def evaluate(self) -> int:
+        return self.evalutor.evaluate(self.board)

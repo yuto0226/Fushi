@@ -1,0 +1,18 @@
+import chess
+
+PIECE_VALUES = {
+    chess.KING: 10000,
+    chess.QUEEN: 1000,
+    chess.ROOK: 525,
+    chess.BISHOP: 350,
+    chess.KNIGHT: 350,
+    chess.PAWN: 100,
+}
+
+
+class Evaluator:
+    def __init__(self):
+        pass
+
+    def evalute(self, board: chess.Board) -> int:
+        raise NotImplementedError

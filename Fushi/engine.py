@@ -1,6 +1,6 @@
 import chess
 
-from .searcher import Searcher
+from .search import Searcher
 
 ENGINE_NAME = "Fushi"
 ENGINE_AUTHOR = "Yuto"

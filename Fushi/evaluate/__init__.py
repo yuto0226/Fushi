@@ -1,5 +1,7 @@
 import chess
 
+from .shannon import ShannonEvaluator as ShannonEvaluator
+
 PIECE_VALUES = {
     chess.KING: 10000,
     chess.QUEEN: 1000,

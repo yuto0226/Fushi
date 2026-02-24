@@ -4,6 +4,8 @@ from typing import Callable
 
 import chess
 
+from .basic import BasicSearcher as BasicSearcher
+
 
 @dataclass
 class SearchInfo:

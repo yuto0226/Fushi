@@ -3,7 +3,7 @@ import time
 
 import chess
 
-from Fushi.evaluator import Evaluator
+from Fushi.evaluate import Evaluator
 
 from . import InfoCallback, SearchInfo, SearchResult, Searcher
 

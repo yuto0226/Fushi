@@ -1,8 +1,8 @@
 #!/usr/bin/env -S python3 -u
 from Fushi.engine import Engine
-from Fushi.evaluator.shannon import ShannonEvaluator
-from Fushi.searcher.BasicSearcher import BasicSearcher
 from Fushi.uci import UCIHandler
+from Fushi.evaluate import ShannonEvaluator
+from Fushi.search import BasicSearcher
 
 
 def main():

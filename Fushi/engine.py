@@ -1,8 +1,6 @@
-import sys
-
 import chess
 
-from .evaluator import Evaluator
+from .searcher import Searcher
 
 ENGINE_NAME = "Fushi"
 ENGINE_AUTHOR = "Yuto"
@@ -10,7 +8,7 @@ VERSION = "0.0.1"
 
 
 class Engine:
-    def __init__(self, evalutor: Evaluator, debug=False):
+    def __init__(self, searcher: Searcher, debug=False):
         self._name = ENGINE_NAME
         self._author = ENGINE_AUTHOR
         self._is_ready = True
@@ -18,7 +16,7 @@ class Engine:
         self.debug = debug
 
         self.board = chess.Board()
-        self.evalutor = evalutor
+        self.searcher = searcher
 
     def name(self):
         return self._name
@@ -60,25 +58,8 @@ class Engine:
     def search(self) -> chess.Move | None:
         self._stop = False
 
-        legal_moves = list(self.board.legal_moves)
+        def on_info(info):
+            print(info.to_uci())
 
-        best_move = None
-        best_score = -sys.maxsize
-
-        for move in legal_moves:
-            if self.stopping():
-                break
-
-            self.board.push(move)
-            score = self.evaluate()
-            print(f"info score cp {score} depth 1 pv {move.uci()}")
-            self.board.pop()
-
-            if score > best_score:
-                best_move = move
-                best_score = score
-
-        return best_move
-
-    def evaluate(self) -> int:
-        return self.evalutor.evaluate(self.board)
+        result = self.searcher.search(self.board, on_info=on_info)
+        return result.best_move

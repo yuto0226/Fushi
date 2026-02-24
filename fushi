@@ -1,4 +1,9 @@
 #!/usr/bin/env -S python3 -u
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
 from Fushi.engine import Engine
 from Fushi.uci import UCIHandler
 from Fushi.evaluate import ShannonEvaluator, WeightedEvaluator
@@ -6,6 +11,10 @@ from Fushi.search import BruteForceSearcher
 
 
 def main():
+    sys.stdin = os.fdopen(sys.stdin.fileno(), "r", buffering=1)
+    sys.stdout = os.fdopen(sys.stdout.fileno(), "w", buffering=1)
+    sys.stderr = os.fdopen(sys.stderr.fileno(), "w", buffering=1)
+
     evaluator = WeightedEvaluator(
         [
             (ShannonEvaluator(), 1.0),

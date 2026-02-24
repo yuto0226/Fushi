@@ -3,7 +3,7 @@
 
 a = Analysis(
     ['fushi'],
-    pathex=[],
+    pathex=['.', 'src'],
     binaries=[],
     datas=[],
     hiddenimports=[],

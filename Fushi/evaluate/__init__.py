@@ -14,7 +14,13 @@ PIECE_VALUES = {
 
 class Evaluator(ABC):
     @abstractmethod
-    def evaluate(self, board: chess.Board) -> int: ...
+    def evaluate(self, board: chess.Board) -> int:
+        """
+        Evaluate the board from an absolute perspective.
+        Score > 0 means White is winning.
+        Score < 0 means Black is winning.
+        """
+        ...
 
 
 from .shannon import ShannonEvaluator as ShannonEvaluator  # noqa: E402

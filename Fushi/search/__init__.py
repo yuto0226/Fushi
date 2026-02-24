@@ -46,7 +46,12 @@ class Searcher(ABC):
         board: chess.Board,
         *,
         on_info: InfoCallback | None = None,
-    ) -> SearchResult: ...
+    ) -> SearchResult:
+        """
+        Search for the best move.
+        Returns a SearchResult where the score is relative to the side to move at the root.
+        """
+        ...
 
 
 from .basic import BasicSearcher as BasicSearcher  # noqa: E402

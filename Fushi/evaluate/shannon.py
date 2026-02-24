@@ -22,19 +22,19 @@ class ShannonEvaluator(Evaluator):
         KQRBNP = number of kings, queens, rooks, bishops, knights and pawns
         D,S,I = doubled, blocked and isolated pawns
         M = Mobility (the number of legal moves)
+
+        Returns:
+            Absolute score (positive for White, negative for Black).
         """
         if board.is_checkmate():
-            return -sys.maxsize if board.turn else sys.maxsize
+            return -sys.maxsize if board.turn == chess.WHITE else sys.maxsize
 
         if board.is_stalemate() or board.is_insufficient_material():
             return 0
 
-        score = 0
-
+        score = 0.0
         score += self._evaluate_material(board)
-
         score -= 0.5 * self._evaluate_pawn_structure(board)
-
         score += 0.1 * self._evaluate_mobility(board)
 
         return round(score)

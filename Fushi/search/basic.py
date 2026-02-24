@@ -26,14 +26,19 @@ class BasicSearcher(Searcher):
         best_score = -sys.maxsize
 
         board = board.copy()
+        root_turn = board.turn
 
         for move in board.legal_moves:
             nodes += 1
             board.push(move)
-            score = -self._evaluator.evaluate(board)
+
+            # convert to relative score
+            abs_score = self._evaluator.evaluate(board)
+            score = abs_score if root_turn == chess.WHITE else -abs_score
+
             board.pop()
 
-            if score > best_score:
+            if score > best_score or best_move is None:
                 best_score = score
                 best_move = move
 

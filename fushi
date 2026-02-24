@@ -1,10 +1,11 @@
 #!/usr/bin/env -S python3 -u
 from Fushi.engine import Engine
+from Fushi.evaluator.shannon import ShannonEvaluator
 from Fushi.uci import UCIHandler
 
 
 def main():
-    engine = Engine()
+    engine = Engine(ShannonEvaluator())
     uci = UCIHandler(engine)
 
     uci.run()

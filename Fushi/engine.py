@@ -2,7 +2,7 @@ import sys
 
 import chess
 
-from .evaluator.shannon import ShannonEvaluator
+from .evaluator import Evaluator
 
 ENGINE_NAME = "Fushi"
 ENGINE_AUTHOR = "Yuto"
@@ -10,7 +10,7 @@ VERSION = "0.0.1"
 
 
 class Engine:
-    def __init__(self, debug=False):
+    def __init__(self, evalutor: Evaluator, debug=False):
         self._name = ENGINE_NAME
         self._author = ENGINE_AUTHOR
         self._is_ready = True
@@ -18,7 +18,7 @@ class Engine:
         self.debug = debug
 
         self.board = chess.Board()
-        self.evalutor = ShannonEvaluator()
+        self.evalutor = evalutor
 
     def name(self):
         return self._name

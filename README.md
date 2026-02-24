@@ -30,6 +30,10 @@ uv sync
 
 ## License
 
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
+
+This project uses [python-chess](https://github.com/niklasf/python-chess), which is also licensed under GPLv3.
+
 ---
 
 <div align="center">

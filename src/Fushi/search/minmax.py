@@ -18,7 +18,7 @@ class MinMaxSearcher(Searcher):
         evaluator: Evaluator,
         depth: int = 15,
         tt: TranspositionTable | None = None,
-        max_extensions: int = 3,
+        max_extensions: int = 5,
     ):
         super().__init__(tt=tt)
         self._evaluator = evaluator

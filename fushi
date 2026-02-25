@@ -7,7 +7,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from Fushi.engine import Engine
 from Fushi.uci import UCIHandler
 from Fushi.evaluate import ShannonEvaluator, WeightedEvaluator
-from Fushi.search import MinMaxSearcher
+from Fushi.book import PolyglotBookReader
+from Fushi.search import MinMaxSearcher, TranspositionTable, BookSearcher
 
 
 def main():
@@ -24,7 +25,17 @@ def main():
         ]
     )
 
-    engine = Engine(MinMaxSearcher(evaluator))
+    tt = TranspositionTable()
+    inner = MinMaxSearcher(evaluator, tt=tt)
+
+    book_dir = os.path.join(os.path.dirname(__file__), "books")
+    try:
+        book = PolyglotBookReader.from_dir(book_dir)
+        searcher = BookSearcher(inner, book)
+    except FileNotFoundError:
+        searcher = inner
+
+    engine = Engine(searcher)
     uci = UCIHandler(engine)
 
     uci.run()

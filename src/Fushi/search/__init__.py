@@ -66,6 +66,7 @@ class Searcher(ABC):
 
 
 from .basic import BasicSearcher as BasicSearcher  # noqa: E402
+from .book import BookSearcher as BookSearcher  # noqa: E402
 from .dfs import BruteForceSearcher as BruteForceSearcher  # noqa: E402
 from .minmax import MinMaxSearcher as MinMaxSearcher  # noqa: E402
 from .tt import NodeType as NodeType  # noqa: E402

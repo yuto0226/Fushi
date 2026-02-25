@@ -6,7 +6,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from Fushi.engine import Engine
 from Fushi.uci import UCIHandler
-from Fushi.evaluate import ShannonEvaluator, WeightedEvaluator
+from Fushi.evaluate import (
+    ShannonEvaluator,
+    WeightedEvaluator,
+    PSTEvaluator,
+    PhaseEvaluator,
+    PESTO_MG_TABLES,
+    PESTO_EG_TABLES,
+)
 from Fushi.book import PolyglotBookReader
 from Fushi.search import AlphaBetaSearcher, TranspositionTable, BookSearcher
 
@@ -16,13 +23,19 @@ def main():
     sys.stdout = os.fdopen(sys.stdout.fileno(), "w", buffering=1)
     sys.stderr = os.fdopen(sys.stderr.fileno(), "w", buffering=1)
 
-    evaluator = WeightedEvaluator(
-        [
-            (ShannonEvaluator(), 1.0),
-            # (PSTEvaluator(),     0.3),
-            # (MobilityEvaluator(), 0.1),
-            # (KingActivityEvaluator(), 0.5),
-        ]
+    evaluator = PhaseEvaluator(
+        mg=WeightedEvaluator(
+            [
+                (ShannonEvaluator(), 1.0),
+                (PSTEvaluator(PESTO_MG_TABLES), 1.0),
+            ]
+        ),
+        eg=WeightedEvaluator(
+            [
+                (ShannonEvaluator(), 1.0),
+                (PSTEvaluator(PESTO_EG_TABLES), 1.0),
+            ]
+        ),
     )
 
     tt = TranspositionTable()

@@ -75,6 +75,22 @@ class Engine:
                 except ValueError:
                     continue
 
+    def _compute_move_time(self) -> int | None:
+        """base / 20 + increment / 2"""
+        if self.infinite:
+            return None
+
+        if self.movetime is not None:
+            return self.movetime
+
+        base = self.wtime if self.board.turn == chess.WHITE else self.btime
+        inc = self.winc if self.board.turn == chess.WHITE else self.binc
+
+        if base is None:
+            return None
+
+        return base // 20 + inc // 2
+
     def go(self, on_bestmove: BestMoveCallback) -> None:
         """
         Start searching in a background thread.
@@ -90,9 +106,9 @@ class Engine:
         def _run():
             timer: threading.Timer | None = None
 
-            if self.movetime is not None:
-                # UCI movetime is MS, Timer needs SECONDS
-                timer = threading.Timer(self.movetime / 1000.0, self._stop_event.set)
+            allocated_ms = self._compute_move_time()
+            if allocated_ms is not None:
+                timer = threading.Timer(allocated_ms / 1000.0, self._stop_event.set)
                 timer.daemon = True
                 timer.start()
 

@@ -35,9 +35,8 @@ class UCIHandler:
     def _cmd_uci(self, _) -> None:
         print(f"id name {self._engine.name()}")
         print(f"id author {self._engine.author()}")
-
+        print("option name UCI_Ponder type check default false")
         print("uciok")
-        pass
 
     def _cmd_debug(self, args: list[str]) -> None:
         """debug [on|off]"""
@@ -68,7 +67,7 @@ class UCIHandler:
 
     def _cmd_ucinewgame(self, _) -> None:
         """create new game"""
-        pass
+        self._engine.reset()
 
     def _cmd_position(self, args: list[str]) -> None:
         """position [fen <fenstring>|starpos] moves <move_0> .... <move_i>"""
@@ -131,8 +130,11 @@ class UCIHandler:
                     i += 1
             i += 1
 
-        def on_bestmove(move):
-            print(f"bestmove {move if move else '(none)'}", flush=True)
+        def on_bestmove(best_move, ponder_move):
+            tokens = [f"bestmove {best_move.uci() if best_move else '(none)'}"]
+            if ponder_move is not None:
+                tokens.append(f"ponder {ponder_move.uci()}")
+            print(" ".join(tokens), flush=True)
 
         self._engine.go(on_bestmove=on_bestmove)
 
@@ -142,7 +144,8 @@ class UCIHandler:
         pass
 
     def _cmd_ponderhit(self, _) -> None:
-        pass
+        """ppponent played the predicted move"""
+        self._engine.ponderhit()
 
     def _cmd_quit(self, _) -> None:
         """quit asap"""

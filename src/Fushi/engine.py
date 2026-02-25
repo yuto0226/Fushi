@@ -10,7 +10,12 @@ ENGINE_NAME = "Fushi"
 ENGINE_AUTHOR = "Yuto"
 VERSION = "0.0.1"
 
-BestMoveCallback = Callable[[chess.Move | None], None]
+BestMoveCallback = Callable[[chess.Move | None, chess.Move | None], None]
+"""
+Arguments: (best_move, ponder_move)
+  best_move   — move the engine wants to play
+  ponder_move — expected opponent reply (pv[1]), or None
+"""
 
 
 class Engine:
@@ -24,6 +29,10 @@ class Engine:
         self.board = chess.Board()
         self.searcher = searcher
         self._search_thread: threading.Thread | None = None
+
+        # pondering state, only written inside go() and _run()'s finally
+        self._is_pondering: bool = False
+        self._timer: threading.Timer | None = None
 
         # search option
         self.ponder = False
@@ -51,14 +60,33 @@ class Engine:
         return self._is_ready
 
     def stop(self):
-        """stop searching asap"""
+        """Stop searching asap.
+
+        Works identically whether we are in SEARCHING or PONDERING:
+        _stop_event fires → search returns → _run()'s finally calls on_bestmove.
+        """
         self._stop_event.set()
 
     def stopping(self) -> bool:
         return self._stop_event.is_set()
 
+    def ponderhit(self) -> None:
+        """Opponent played the predicted move.
+
+        Transitions PONDERING → SEARCHING by arming the time limit.
+        The search thread keeps running — the TT is already warm.
+        """
+        if not self._is_pondering:
+            return
+        self._is_pondering = False
+        self._arm_timer()
+
     def reset(self):
-        pass
+        self._stop_event.set()
+        if self._search_thread and self._search_thread.is_alive():
+            self._search_thread.join()
+        self._is_pondering = False
+        self.board.reset()
 
     def set_position(self, fen: str = "", moves: list[str] = []) -> None:
         if fen == "startpos":
@@ -94,7 +122,9 @@ class Engine:
     def go(self, on_bestmove: BestMoveCallback) -> None:
         """
         Start searching in a background thread.
-        Calls on_bestmove(move) when done.
+        Calls on_bestmove(best_move, ponder_move) when done.
+
+        If self.ponder is True, searches indefinitely until ponderhit() or stop()
         """
         # abort any previous search
         if self._search_thread and self._search_thread.is_alive():
@@ -102,15 +132,13 @@ class Engine:
             self._search_thread.join()
 
         self._stop_event.clear()
+        self._timer = None
+        self._is_pondering = self.ponder  # PONDERING if ponder flag set
 
         def _run():
-            timer: threading.Timer | None = None
-
-            allocated_ms = self._compute_move_time()
-            if allocated_ms is not None:
-                timer = threading.Timer(allocated_ms / 1000.0, self._stop_event.set)
-                timer.daemon = True
-                timer.start()
+            # Arm the timer now for normal search; pondering waits for ponderhit().
+            if not self._is_pondering:
+                self._arm_timer()
 
             def on_info(info):
                 print(info.to_uci(), flush=True)
@@ -121,10 +149,21 @@ class Engine:
                     on_info=on_info,
                     stop_condition=self._stop_event.is_set,
                 )
-                on_bestmove(result.best_move)
+                ponder_move = result.pv[1] if len(result.pv) >= 2 else None
+                on_bestmove(result.best_move, ponder_move)
             finally:
-                if timer is not None:
-                    timer.cancel()
+                if self._timer is not None:
+                    self._timer.cancel()
+                self._is_pondering = False
 
         self._search_thread = threading.Thread(target=_run, daemon=True)
         self._search_thread.start()
+
+    def _arm_timer(self) -> None:
+        """Start a one-shot timer that fires _stop_event after the computed budget."""
+        ms = self._compute_move_time()
+        if ms is None:
+            return
+        self._timer = threading.Timer(ms / 1000.0, self._stop_event.set)
+        self._timer.daemon = True
+        self._timer.start()

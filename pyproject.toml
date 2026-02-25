@@ -9,6 +9,11 @@ dependencies = [
     "pytest>=9.0.2",
 ]
 
+[tool.pytest.ini_options]
+addopts = "-v"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.5.1",

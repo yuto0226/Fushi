@@ -43,7 +43,7 @@ class UCIHandler:
         """debug [on|off]"""
         if args[0] == "on":
             self._engine.debug = True
-        elif args[1] == "off":
+        elif args[0] == "off":
             self._engine.debug = False
 
     def _cmd_isready(self, _) -> None:
@@ -85,9 +85,56 @@ class UCIHandler:
         pass
 
     def _cmd_go(self, args: list[str]) -> None:
-        """search for best move"""
-        move = self._engine.search()
-        print(f"bestmove {move}")
+        """
+        go [searchmoves <move>...] [ponder] [wtime <ms>] [btime <ms>]
+           [winc <ms>] [binc <ms>] [movestogo <n>] [depth <n>] [nodes <n>]
+           [mate <n>] [movetime <ms>] [infinite]
+        """
+        # reset search options to defaults
+        import sys as _sys
+
+        self._engine.ponder = False
+        self._engine.wtime = None
+        self._engine.btime = None
+        self._engine.winc = 0
+        self._engine.binc = 0
+        self._engine.movestogo = None
+        self._engine.movetime = None
+        self._engine.depth = _sys.maxsize
+        self._engine.nodes = _sys.maxsize
+        self._engine.mate = _sys.maxsize
+        self._engine.infinite = False
+
+        i = 0
+        while i < len(args):
+            token = args[i]
+            if token == "ponder":
+                self._engine.ponder = True
+            elif token == "infinite":
+                self._engine.infinite = True
+            elif token in (
+                "wtime",
+                "btime",
+                "winc",
+                "binc",
+                "movestogo",
+                "movetime",
+                "depth",
+                "nodes",
+                "mate",
+            ):
+                if i + 1 < len(args):
+                    try:
+                        setattr(self._engine, token, int(args[i + 1]))
+                    except ValueError:
+                        pass
+                    i += 1
+            i += 1
+
+        def on_bestmove(move):
+            print(f"bestmove {move if move else '(none)'}", flush=True)
+
+        self._engine.go(on_bestmove=on_bestmove)
 
     def _cmd_stop(self, _) -> None:
         """finish search asap"""

@@ -5,7 +5,7 @@ import chess
 
 from Fushi.evaluate import Evaluator
 
-from . import InfoCallback, SearchInfo, SearchResult, Searcher
+from . import InfoCallback, SearchInfo, SearchResult, Searcher, StopCondition
 
 
 class BasicSearcher(Searcher):
@@ -18,6 +18,7 @@ class BasicSearcher(Searcher):
         board: chess.Board,
         *,
         on_info: InfoCallback | None = None,
+        stop_condition: StopCondition | None = None,
     ) -> SearchResult:
         start = time.monotonic_ns()
         nodes = 0
@@ -29,6 +30,9 @@ class BasicSearcher(Searcher):
         root_turn = board.turn
 
         for move in board.legal_moves:
+            if stop_condition and stop_condition():
+                break
+
             nodes += 1
             board.push(move)
 

@@ -4,6 +4,8 @@ from typing import Callable
 
 import chess
 
+StopCondition = Callable[[], bool]
+
 
 @dataclass
 class SearchInfo:
@@ -46,6 +48,7 @@ class Searcher(ABC):
         board: chess.Board,
         *,
         on_info: InfoCallback | None = None,
+        stop_condition: StopCondition | None = None,
     ) -> SearchResult:
         """
         Search for the best move.

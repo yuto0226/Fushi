@@ -5,15 +5,16 @@ import chess
 
 from Fushi.evaluate import Evaluator
 
-from . import InfoCallback, SearchInfo, SearchResult, Searcher
+from . import InfoCallback, SearchInfo, SearchResult, Searcher, StopCondition
 
 
 class BruteForceSearcher(Searcher):
-    def __init__(self, evaluator: Evaluator, depth: int = 3):
+    def __init__(self, evaluator: Evaluator, depth: int = 15):
         super().__init__()
         self._evaluator = evaluator
         self._depth = depth
         self.nodes = 0
+        self._stop_condition: StopCondition | None = None
 
     def _dfs(self, board: chess.Board, depth: int) -> tuple[int, list[chess.Move]]:
         if depth == 0 or board.is_game_over():
@@ -28,6 +29,9 @@ class BruteForceSearcher(Searcher):
         best_pv: list[chess.Move] = []
 
         for move in board.legal_moves:
+            if self._stop_condition and self._stop_condition():
+                break
+
             self.nodes += 1
 
             board.push(move)
@@ -48,32 +52,47 @@ class BruteForceSearcher(Searcher):
         board: chess.Board,
         *,
         on_info: InfoCallback | None = None,
+        stop_condition: StopCondition | None = None,
     ) -> SearchResult:
         start = time.monotonic_ns()
         self.nodes = 0
+        self._stop_condition = stop_condition
 
         board = board.copy()
 
-        best_score, best_pv = self._dfs(board, self._depth)
-        best_move = best_pv[0] if best_pv else None
+        last_result: SearchResult | None = None
 
-        elapsed_ms = (time.monotonic_ns() - start) // 1_000_000
+        for depth in range(1, self._depth + 1):
+            if stop_condition and stop_condition():
+                break
 
-        info = SearchInfo(
-            depth=self._depth,
-            score=best_score,
-            nodes=self.nodes,
-            time_ms=elapsed_ms,
-            pv=best_pv,
-        )
+            score, pv = self._dfs(board, depth)
 
-        if on_info:
-            on_info(info)
+            if stop_condition and stop_condition():
+                break
 
-        return SearchResult(
-            best_move=best_move,
-            score=best_score,
-            depth=self._depth,
-            nodes=self.nodes,
-            pv=best_pv,
-        )
+            elapsed_ms = (time.monotonic_ns() - start) // 1_000_000
+            best_move = pv[0] if pv else None
+
+            info = SearchInfo(
+                depth=depth,
+                score=score,
+                nodes=self.nodes,
+                time_ms=elapsed_ms,
+                pv=pv,
+            )
+            if on_info:
+                on_info(info)
+
+            last_result = SearchResult(
+                best_move=best_move,
+                score=score,
+                depth=depth,
+                nodes=self.nodes,
+                pv=pv,
+            )
+
+        if last_result is None:
+            last_result = SearchResult(best_move=None, score=0, depth=0, nodes=0, pv=[])
+
+        return last_result

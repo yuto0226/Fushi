@@ -60,39 +60,25 @@ class BruteForceSearcher(Searcher):
 
         board = board.copy()
 
-        last_result: SearchResult | None = None
+        score, pv = self._dfs(board, self._depth)
 
-        for depth in range(1, self._depth + 1):
-            if stop_condition and stop_condition():
-                break
+        elapsed_ms = (time.monotonic_ns() - start) // 1_000_000
+        best_move = pv[0] if pv else None
 
-            score, pv = self._dfs(board, depth)
+        info = SearchInfo(
+            depth=self._depth,
+            score=score,
+            nodes=self.nodes,
+            time_ms=elapsed_ms,
+            pv=pv,
+        )
+        if on_info:
+            on_info(info)
 
-            if stop_condition and stop_condition():
-                break
-
-            elapsed_ms = (time.monotonic_ns() - start) // 1_000_000
-            best_move = pv[0] if pv else None
-
-            info = SearchInfo(
-                depth=depth,
-                score=score,
-                nodes=self.nodes,
-                time_ms=elapsed_ms,
-                pv=pv,
-            )
-            if on_info:
-                on_info(info)
-
-            last_result = SearchResult(
-                best_move=best_move,
-                score=score,
-                depth=depth,
-                nodes=self.nodes,
-                pv=pv,
-            )
-
-        if last_result is None:
-            last_result = SearchResult(best_move=None, score=0, depth=0, nodes=0, pv=[])
-
-        return last_result
+        return SearchResult(
+            best_move=best_move,
+            score=score,
+            depth=self._depth,
+            nodes=self.nodes,
+            pv=pv,
+        )

@@ -58,4 +58,5 @@ class Searcher(ABC):
 
 
 from .basic import BasicSearcher as BasicSearcher  # noqa: E402
-from .brute_force import BruteForceSearcher as BruteForceSearcher  # noqa: E402
+from .dfs import BruteForceSearcher as BruteForceSearcher  # noqa: E402
+from .minmax import MinMaxSearcher as MinMaxSearcher  # noqa: E402

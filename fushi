@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from Fushi.engine import Engine
 from Fushi.uci import UCIHandler
 from Fushi.evaluate import ShannonEvaluator, WeightedEvaluator
-from Fushi.search import BruteForceSearcher
+from Fushi.search import MinMaxSearcher
 
 
 def main():
@@ -24,7 +24,7 @@ def main():
         ]
     )
 
-    engine = Engine(BruteForceSearcher(evaluator))
+    engine = Engine(MinMaxSearcher(evaluator))
     uci = UCIHandler(engine)
 
     uci.run()

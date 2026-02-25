@@ -65,6 +65,7 @@ class Searcher(ABC):
         ...
 
 
+from .alphabeta import AlphaBetaSearcher as AlphaBetaSearcher  # noqa: E402
 from .basic import BasicSearcher as BasicSearcher  # noqa: E402
 from .book import BookSearcher as BookSearcher  # noqa: E402
 from .dfs import BruteForceSearcher as BruteForceSearcher  # noqa: E402

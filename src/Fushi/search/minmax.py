@@ -8,6 +8,9 @@ from Fushi.evaluate import Evaluator
 from . import InfoCallback, SearchInfo, SearchResult, Searcher, StopCondition
 from .tt import NodeType, TranspositionTable, zobrist_hash
 
+# this score indicate a forced mate
+_MATE_THRESHOLD = 50_000
+
 
 class MinMaxSearcher(Searcher):
     def __init__(
@@ -15,10 +18,12 @@ class MinMaxSearcher(Searcher):
         evaluator: Evaluator,
         depth: int = 15,
         tt: TranspositionTable | None = None,
+        max_extensions: int = 3,
     ):
         super().__init__(tt=tt)
         self._evaluator = evaluator
         self._depth = depth
+        self._max_extensions = max_extensions
         self.nodes = 0
         self._stop_condition: StopCondition | None = None
 
@@ -45,7 +50,9 @@ class MinMaxSearcher(Searcher):
 
         return moves
 
-    def _dfs(self, board: chess.Board, depth: int) -> tuple[int, list[chess.Move]]:
+    def _dfs(
+        self, board: chess.Board, depth: int, extensions: int = 0
+    ) -> tuple[int, list[chess.Move]]:
         # probe
         key = zobrist_hash(board)
         tt_entry = self._tt.probe(key) if self._tt is not None else None
@@ -74,7 +81,11 @@ class MinMaxSearcher(Searcher):
 
             board.push(move)
 
-            score, pv = self._dfs(board, depth - 1)
+            # check extension
+            is_check = board.is_check()
+            ext = 1 if is_check and extensions < self._max_extensions else 0
+
+            score, pv = self._dfs(board, depth - 1 + ext, extensions + ext)
             score = -score  # reverse opponent's score
 
             board.pop()
@@ -113,6 +124,13 @@ class MinMaxSearcher(Searcher):
 
         last_result: SearchResult | None = None
 
+        # only one move available.
+        if board.legal_moves.count() == 1:
+            only_move = next(iter(board.legal_moves))
+            return SearchResult(
+                best_move=only_move, score=0, depth=0, nodes=0, pv=[only_move]
+            )
+
         for depth in range(1, self._depth + 1):
             if self._should_stop():
                 break
@@ -141,6 +159,10 @@ class MinMaxSearcher(Searcher):
                 nodes=self.nodes,
                 pv=pv,
             )
+
+            # forced mate confirmed, deeper search cannot find a better move
+            if abs(score) >= _MATE_THRESHOLD:
+                break
 
         if last_result is None:
             last_result = SearchResult(best_move=None, score=0, depth=0, nodes=0, pv=[])

@@ -11,6 +11,16 @@ from .tt import NodeType, TranspositionTable, zobrist_hash
 # this score indicates a forced mate
 _MATE_THRESHOLD = 50_000
 
+# Piece values used for MVV-LVA (Most Valuable Victim - Least Valuable Attacker) ordering
+_MVV_LVA_VALUE: dict[int, int] = {
+    chess.PAWN: 100,
+    chess.KNIGHT: 320,
+    chess.BISHOP: 330,
+    chess.ROOK: 500,
+    chess.QUEEN: 900,
+    chess.KING: 20_000,
+}
+
 
 class AlphaBetaSearcher(Searcher):
     def __init__(
@@ -35,20 +45,75 @@ class AlphaBetaSearcher(Searcher):
         score = self._evaluator.evaluate(board)
         return score if board.turn == chess.WHITE else -score
 
-    def _order_moves(self, board: chess.Board, tt_entry: object) -> list[chess.Move]:
-        """Return legal moves with the TT hash move sorted first, if available."""
-        moves = list(board.legal_moves)
+    def _mvv_lva_score(self, board: chess.Board, move: chess.Move) -> int:
+        """Return MVV-LVA score for a capture move (higher = search earlier)."""
+        victim = board.piece_at(move.to_square)
+        if victim is None:
+            # En passant: pawn captures pawn
+            return _MVV_LVA_VALUE[chess.PAWN] * 10 - _MVV_LVA_VALUE[chess.PAWN]
+        attacker = board.piece_at(move.from_square)
+        attacker_value = _MVV_LVA_VALUE.get(attacker.piece_type, 0) if attacker else 0
+        return _MVV_LVA_VALUE[victim.piece_type] * 10 - attacker_value
 
+    def _order_moves(self, board: chess.Board, tt_entry: object) -> list[chess.Move]:
+        """Return legal moves ordered: TT hash move first, captures by MVV-LVA, then quiet moves."""
         hash_move: chess.Move | None = None
         if tt_entry is not None and tt_entry.best_move is not None:  # type: ignore[union-attr]
             if tt_entry.best_move in board.legal_moves:  # type: ignore[union-attr]
                 hash_move = tt_entry.best_move  # type: ignore[union-attr]
 
-        if hash_move is not None:
-            moves.remove(hash_move)
-            moves.insert(0, hash_move)
+        captures: list[chess.Move] = []
+        quiets: list[chess.Move] = []
+        for move in board.legal_moves:
+            if move == hash_move:
+                continue
+            if board.is_capture(move):
+                captures.append(move)
+            else:
+                quiets.append(move)
 
-        return moves
+        captures.sort(key=lambda m: self._mvv_lva_score(board, m), reverse=True)
+
+        result: list[chess.Move] = []
+        if hash_move is not None:
+            result.append(hash_move)
+        result.extend(captures)
+        result.extend(quiets)
+        return result
+
+    def _qsearch(
+        self,
+        board: chess.Board,
+        alpha: int,
+        beta: int,
+    ) -> int:
+        """Quiescence search: keep searching captures until the position is quiet."""
+        # Stand-pat: the side to move can choose not to capture
+        stand_pat = self._relative_score(board)
+        if stand_pat >= beta:
+            return beta
+        if stand_pat > alpha:
+            alpha = stand_pat
+
+        if board.is_game_over():
+            return stand_pat
+
+        # Only search captures, ordered by MVV-LVA
+        captures = [m for m in board.legal_moves if board.is_capture(m)]
+        captures.sort(key=lambda m: self._mvv_lva_score(board, m), reverse=True)
+
+        for move in captures:
+            self.nodes += 1
+            board.push(move)
+            score = -self._qsearch(board, -beta, -alpha)
+            board.pop()
+
+            if score >= beta:
+                return beta
+            if score > alpha:
+                alpha = score
+
+        return alpha
 
     def _dfs(
         self,
@@ -77,11 +142,9 @@ class AlphaBetaSearcher(Searcher):
                 pv = [tt_entry.best_move] if tt_entry.best_move is not None else []
                 return tt_entry.score, pv
 
-        # leaf node
+        # leaf node: run quiescence search instead of bare static eval
         if depth == 0 or board.is_game_over():
-            score = self._relative_score(board)
-            if self._tt is not None:
-                self._tt.store(key, depth, score, NodeType.EXACT)
+            score = self._qsearch(board, alpha, beta)
             return score, []
 
         # recurse

@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 from Fushi.engine import Engine
 from Fushi.uci import UCIHandler
 from Fushi.evaluate import (
-    ShannonEvaluator,
+    EnhancedShannonEvaluator,
     WeightedEvaluator,
     PSTEvaluator,
     PhaseEvaluator,
@@ -27,14 +27,14 @@ def main():
     evaluator = PhaseEvaluator(
         mg=WeightedEvaluator(
             [
-                (ShannonEvaluator(), 1.0),
+                (EnhancedShannonEvaluator(), 1.0),
                 (PSTEvaluator(FUSHI_MG_TABLES), 1.0),
                 (KingSafetyEvaluator(), 2.0),
             ]
         ),
         eg=WeightedEvaluator(
             [
-                (ShannonEvaluator(), 1.0),
+                (EnhancedShannonEvaluator(), 1.0),
                 (PSTEvaluator(FUSHI_EG_TABLES), 1.0),
             ]
         ),

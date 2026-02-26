@@ -24,6 +24,7 @@ class Evaluator(ABC):
 
 
 from .shannon import ShannonEvaluator as ShannonEvaluator  # noqa: E402
+from .enhanced_shannon import EnhancedShannonEvaluator as EnhancedShannonEvaluator  # noqa: E402
 from .pst import (  # noqa: E402
     PSTEvaluator as PSTEvaluator,
     CLASSICAL_TABLES as CLASSICAL_TABLES,

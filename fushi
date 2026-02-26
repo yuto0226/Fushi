@@ -11,6 +11,7 @@ from Fushi.evaluate import (
     WeightedEvaluator,
     PSTEvaluator,
     PhaseEvaluator,
+    KingSafetyEvaluator,
     PESTO_MG_TABLES,
     PESTO_EG_TABLES,
 )
@@ -28,6 +29,7 @@ def main():
             [
                 (ShannonEvaluator(), 1.0),
                 (PSTEvaluator(PESTO_MG_TABLES), 1.0),
+                (KingSafetyEvaluator(), 2.0),
             ]
         ),
         eg=WeightedEvaluator(

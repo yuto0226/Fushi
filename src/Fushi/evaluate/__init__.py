@@ -30,6 +30,7 @@ from .pst import (  # noqa: E402
     PESTO_MG_TABLES as PESTO_MG_TABLES,
     PESTO_EG_TABLES as PESTO_EG_TABLES,
 )
+from .king_safety import KingSafetyEvaluator as KingSafetyEvaluator  # noqa: E402
 
 
 class WeightedEvaluator(Evaluator):

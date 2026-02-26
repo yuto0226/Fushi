@@ -157,14 +157,24 @@ class TranspositionTable:
             or existing.age < self._age  # stale entry → replace freely
             or depth >= existing.depth  # deeper search → replace
         ):
-            self._table[idx] = TTEntry(
-                key=key,
-                depth=depth,
-                score=score,
-                node_type=node_type,
-                best_move=best_move,
-                age=self._age,
-            )
+            if existing is not None:
+                # Mutate the existing object in-place to avoid allocating a new
+                # TTEntry on every store (the hottest write path in the engine).
+                existing.key = key
+                existing.depth = depth
+                existing.score = score
+                existing.node_type = node_type
+                existing.best_move = best_move
+                existing.age = self._age
+            else:
+                self._table[idx] = TTEntry(
+                    key=key,
+                    depth=depth,
+                    score=score,
+                    node_type=node_type,
+                    best_move=best_move,
+                    age=self._age,
+                )
             self.stores += 1
 
     def clear(self) -> None:

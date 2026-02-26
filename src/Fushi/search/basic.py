@@ -26,7 +26,7 @@ class BasicSearcher(Searcher):
         best_move: chess.Move | None = None
         best_score = -sys.maxsize
 
-        board = board.copy()
+        # Do not copy root board here; use push()/pop() for in-place search.
         root_turn = board.turn
 
         for move in board.legal_moves:

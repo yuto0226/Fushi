@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 import time
 
@@ -16,17 +18,20 @@ class BruteForceSearcher(Searcher):
         self.nodes = 0
         self._stop_condition: StopCondition | None = None
 
-    def _dfs(self, board: chess.Board, depth: int) -> tuple[int, list[chess.Move]]:
+    def _dfs(self, board: chess.Board, depth: int) -> tuple[int, object | None]:
         if depth == 0 or board.is_game_over():
             score = self._evaluator.evaluate(board)
             # If it's Black's turn, negate the absolute score (White+, Black-)
             # to get the relative score (SideToMove+)
             if board.turn == chess.BLACK:
                 score = -score
-            return score, []
+            return score, None
+
+        # Internal PV cons-type: (move, tail) or None
+        PV = tuple[chess.Move, "PV"] | None
 
         best_score = -sys.maxsize
-        best_pv: list[chess.Move] = []
+        best_pv = None
 
         for move in board.legal_moves:
             if self._stop_condition and self._stop_condition():
@@ -43,7 +48,7 @@ class BruteForceSearcher(Searcher):
 
             if score > best_score or not best_pv:
                 best_score = score
-                best_pv = [move] + pv
+                best_pv = (move, pv)
 
         return best_score, best_pv
 
@@ -58,19 +63,31 @@ class BruteForceSearcher(Searcher):
         self.nodes = 0
         self._stop_condition = stop_condition
 
-        board = board.copy()
+        # Do not copy root board here; use push()/pop() for in-place search.
 
         score, pv = self._dfs(board, self._depth)
-
         elapsed_ms = (time.monotonic_ns() - start) // 1_000_000
-        best_move = pv[0] if pv else None
+        best_move = pv[0] if pv and isinstance(pv, tuple) else None
+
+        # Convert cons-style PV to a flat list for external API/printing
+        def _pv_to_list(pv_cons):
+            if not pv_cons:
+                return []
+            out: list[chess.Move] = []
+            cur = pv_cons
+            while cur is not None:
+                out.append(cur[0])
+                cur = cur[1]
+            return out
+
+        pv_list = _pv_to_list(pv)
 
         info = SearchInfo(
             depth=self._depth,
             score=score,
             nodes=self.nodes,
             time_ms=elapsed_ms,
-            pv=pv,
+            pv=pv_list,
         )
         if on_info:
             on_info(info)
@@ -80,5 +97,5 @@ class BruteForceSearcher(Searcher):
             score=score,
             depth=self._depth,
             nodes=self.nodes,
-            pv=pv,
+            pv=pv_list,
         )

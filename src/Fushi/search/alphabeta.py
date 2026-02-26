@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 import time
 
@@ -20,6 +22,9 @@ _MVV_LVA_VALUE: dict[int, int] = {
     chess.QUEEN: 900,
     chess.KING: 20_000,
 }
+
+# Internal PV cons-type: (move, tail) or None
+PV = tuple[chess.Move, "PV"] | None
 
 
 class AlphaBetaSearcher(Searcher):
@@ -47,39 +52,36 @@ class AlphaBetaSearcher(Searcher):
 
     def _mvv_lva_score(self, board: chess.Board, move: chess.Move) -> int:
         """Return MVV-LVA score for a capture move (higher = search earlier)."""
-        victim = board.piece_at(move.to_square)
-        if victim is None:
+        # Use piece_type_at to avoid allocating Piece objects repeatedly.
+        victim_type = board.piece_type_at(move.to_square)
+        if victim_type is None:
             # En passant: pawn captures pawn
             return _MVV_LVA_VALUE[chess.PAWN] * 10 - _MVV_LVA_VALUE[chess.PAWN]
-        attacker = board.piece_at(move.from_square)
-        attacker_value = _MVV_LVA_VALUE.get(attacker.piece_type, 0) if attacker else 0
-        return _MVV_LVA_VALUE[victim.piece_type] * 10 - attacker_value
+        attacker_type = board.piece_type_at(move.from_square)
+        attacker_value = _MVV_LVA_VALUE.get(attacker_type, 0) if attacker_type else 0
+        return _MVV_LVA_VALUE[victim_type] * 10 - attacker_value
 
     def _order_moves(self, board: chess.Board, tt_entry: object) -> list[chess.Move]:
         """Return legal moves ordered: TT hash move first, captures by MVV-LVA, then quiet moves."""
+        moves = list(board.legal_moves)
+
         hash_move: chess.Move | None = None
         if tt_entry is not None and tt_entry.best_move is not None:  # type: ignore[union-attr]
-            if tt_entry.best_move in board.legal_moves:  # type: ignore[union-attr]
-                hash_move = tt_entry.best_move  # type: ignore[union-attr]
+            hm = tt_entry.best_move  # type: ignore[union-attr]
+            if hm in moves:
+                hash_move = hm
 
-        captures: list[chess.Move] = []
-        quiets: list[chess.Move] = []
-        for move in board.legal_moves:
-            if move == hash_move:
-                continue
+        # Single-pass sort avoids allocating separate captures/quiets/result
+        # lists and an MVV dict.  The sort key is called exactly once per move.
+        def _key(move: chess.Move) -> int:
+            if hash_move is not None and move == hash_move:
+                return 30_000_000
             if board.is_capture(move):
-                captures.append(move)
-            else:
-                quiets.append(move)
+                return 10_000_000 + self._mvv_lva_score(board, move)
+            return 0
 
-        captures.sort(key=lambda m: self._mvv_lva_score(board, m), reverse=True)
-
-        result: list[chess.Move] = []
-        if hash_move is not None:
-            result.append(hash_move)
-        result.extend(captures)
-        result.extend(quiets)
-        return result
+        moves.sort(key=_key, reverse=True)
+        return moves
 
     def _qsearch(
         self,
@@ -95,12 +97,20 @@ class AlphaBetaSearcher(Searcher):
         if stand_pat > alpha:
             alpha = stand_pat
 
-        if board.is_game_over():
-            return stand_pat
-
-        # Only search captures, ordered by MVV-LVA
+        # Only search captures, ordered by MVV-LVA.
+        # is_game_over() is deferred until we know there are no captures:
+        # it is expensive (checks checkmate, stalemate, 50-move, repetition)
+        # and calling it on every node is wasteful.
         captures = [m for m in board.legal_moves if board.is_capture(m)]
-        captures.sort(key=lambda m: self._mvv_lva_score(board, m), reverse=True)
+        if not captures:
+            # Terminal position (checkmate/stalemate) → return stand-pat.
+            # Quiet position with no captures → stand-pat is already correct.
+            if board.is_game_over():
+                return stand_pat
+            return alpha
+
+        mvv = {m: self._mvv_lva_score(board, m) for m in captures}
+        captures.sort(key=lambda m: mvv[m], reverse=True)
 
         for move in captures:
             self.nodes += 1
@@ -115,6 +125,16 @@ class AlphaBetaSearcher(Searcher):
 
         return alpha
 
+    @staticmethod
+    def _pv_to_list(pv_cons: PV) -> list[chess.Move]:
+        """Flatten a cons-style PV chain into a plain list."""
+        out: list[chess.Move] = []
+        cur = pv_cons
+        while cur is not None:
+            out.append(cur[0])
+            cur = cur[1]
+        return out
+
     def _dfs(
         self,
         board: chess.Board,
@@ -122,37 +142,50 @@ class AlphaBetaSearcher(Searcher):
         alpha: int,
         beta: int,
         extensions: int = 0,
-    ) -> tuple[int, list[chess.Move]]:
+    ) -> tuple[int, PV]:
         original_alpha = alpha
+
+        # Cache frequently accessed instance attributes as locals to avoid
+        # repeated attribute lookups on every node in the hot recursive path.
+        tt = self._tt
+        stop_cond = self._stop_condition
 
         # probe TT
         key = zobrist_hash(board)
-        tt_entry = self._tt.probe(key) if self._tt is not None else None
+        tt_entry = tt.probe(key) if tt is not None else None
 
         if tt_entry is not None and tt_entry.depth >= depth:
             if tt_entry.node_type == NodeType.EXACT:
-                pv = [tt_entry.best_move] if tt_entry.best_move is not None else []
-                return tt_entry.score, pv
+                pv_cons = (
+                    (tt_entry.best_move, None)
+                    if tt_entry.best_move is not None
+                    else None
+                )
+                return tt_entry.score, pv_cons
             elif tt_entry.node_type == NodeType.LOWERBOUND:
                 alpha = max(alpha, tt_entry.score)
             elif tt_entry.node_type == NodeType.UPPERBOUND:
                 beta = min(beta, tt_entry.score)
 
             if alpha >= beta:
-                pv = [tt_entry.best_move] if tt_entry.best_move is not None else []
-                return tt_entry.score, pv
+                pv_cons = (
+                    (tt_entry.best_move, None)
+                    if tt_entry.best_move is not None
+                    else None
+                )
+                return tt_entry.score, pv_cons
 
         # leaf node: run quiescence search instead of bare static eval
         if depth == 0 or board.is_game_over():
             score = self._qsearch(board, alpha, beta)
-            return score, []
+            return score, None
 
         # recurse
         best_score = -sys.maxsize
-        best_pv: list[chess.Move] = []
+        best_pv = None
 
         for move in self._order_moves(board, tt_entry):
-            if self._should_stop():
+            if stop_cond is not None and stop_cond():
                 break
 
             self.nodes += 1
@@ -172,7 +205,7 @@ class AlphaBetaSearcher(Searcher):
 
             if score > best_score or not best_pv:
                 best_score = score
-                best_pv = [move] + pv
+                best_pv = (move, pv)
 
             if best_score > alpha:
                 alpha = best_score
@@ -182,7 +215,7 @@ class AlphaBetaSearcher(Searcher):
                 break
 
         # store in TT
-        if self._tt is not None and not self._should_stop():
+        if tt is not None and not (stop_cond is not None and stop_cond()):
             if best_score <= original_alpha:
                 node_type = NodeType.UPPERBOUND
             elif best_score >= beta:
@@ -190,7 +223,7 @@ class AlphaBetaSearcher(Searcher):
             else:
                 node_type = NodeType.EXACT
 
-            self._tt.store(
+            tt.store(
                 key,
                 depth,
                 best_score,
@@ -214,15 +247,15 @@ class AlphaBetaSearcher(Searcher):
         if self._tt is not None:
             self._tt.new_search()
 
-        board = board.copy()
+        # Do not copy root board here; use push()/pop() for in-place search.
 
         last_result: SearchResult | None = None
 
-        # only one move available
-        if board.legal_moves.count() == 1:
-            only_move = next(iter(board.legal_moves))
+        # only one move available — avoid traversing legal_moves twice
+        root_moves = list(board.legal_moves)
+        if len(root_moves) == 1:
             return SearchResult(
-                best_move=only_move, score=0, depth=0, nodes=0, pv=[only_move]
+                best_move=root_moves[0], score=0, depth=0, nodes=0, pv=[root_moves[0]]
             )
 
         for depth in range(1, self._depth + 1):
@@ -230,6 +263,8 @@ class AlphaBetaSearcher(Searcher):
                 break
 
             score, pv = self._dfs(board, depth, -sys.maxsize, sys.maxsize)
+
+            pv_list = self._pv_to_list(pv)
 
             if self._should_stop():
                 break
@@ -241,7 +276,7 @@ class AlphaBetaSearcher(Searcher):
                 score=score,
                 nodes=self.nodes,
                 time_ms=elapsed_ms,
-                pv=pv,
+                pv=pv_list,
             )
             if on_info:
                 on_info(info)
@@ -251,7 +286,7 @@ class AlphaBetaSearcher(Searcher):
                 score=score,
                 depth=depth,
                 nodes=self.nodes,
-                pv=pv,
+                pv=pv_list,
             )
 
             # forced mate confirmed

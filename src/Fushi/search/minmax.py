@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 import time
 
@@ -10,6 +12,9 @@ from .tt import NodeType, TranspositionTable, zobrist_hash
 
 # this score indicate a forced mate
 _MATE_THRESHOLD = 50_000
+
+# Internal PV cons-type: (move, tail) or None
+PV = tuple[chess.Move, "PV"] | None
 
 
 class MinMaxSearcher(Searcher):
@@ -52,26 +57,30 @@ class MinMaxSearcher(Searcher):
 
     def _dfs(
         self, board: chess.Board, depth: int, extensions: int = 0
-    ) -> tuple[int, list[chess.Move]]:
+    ) -> tuple[int, PV]:
         # probe
         key = zobrist_hash(board)
         tt_entry = self._tt.probe(key) if self._tt is not None else None
 
         if tt_entry is not None:
             if tt_entry.depth >= depth and tt_entry.node_type == NodeType.EXACT:
-                pv = [tt_entry.best_move] if tt_entry.best_move is not None else []
-                return tt_entry.score, pv
+                pv_cons = (
+                    (tt_entry.best_move, None)
+                    if tt_entry.best_move is not None
+                    else None
+                )
+                return tt_entry.score, pv_cons
 
         # leaf node
         if depth == 0 or board.is_game_over():
             score = self._relative_score(board)
             if self._tt is not None:
                 self._tt.store(key, depth, score, NodeType.EXACT)
-            return score, []
+            return score, None
 
         # recurse
         best_score = -sys.maxsize
-        best_pv: list[chess.Move] = []
+        best_pv = None
 
         for move in self._order_moves(board, tt_entry):
             if self._should_stop():
@@ -92,7 +101,7 @@ class MinMaxSearcher(Searcher):
 
             if score > best_score or not best_pv:
                 best_score = score
-                best_pv = [move] + pv
+                best_pv = (move, pv)
 
         # store
         if self._tt is not None and not self._should_stop():
@@ -120,7 +129,7 @@ class MinMaxSearcher(Searcher):
         if self._tt is not None:
             self._tt.new_search()
 
-        board = board.copy()
+        # Do not copy root board here; use push()/pop() for in-place search.
 
         last_result: SearchResult | None = None
 
@@ -137,6 +146,19 @@ class MinMaxSearcher(Searcher):
 
             score, pv = self._dfs(board, depth)
 
+            # Convert cons-style PV to a flat list for external API/printing
+            def _pv_to_list(pv_cons):
+                if not pv_cons:
+                    return []
+                out: list[chess.Move] = []
+                cur = pv_cons
+                while cur is not None:
+                    out.append(cur[0])
+                    cur = cur[1]
+                return out
+
+            pv_list = _pv_to_list(pv)
+
             if self._should_stop():
                 break
 
@@ -147,7 +169,7 @@ class MinMaxSearcher(Searcher):
                 score=score,
                 nodes=self.nodes,
                 time_ms=elapsed_ms,
-                pv=pv,
+                pv=pv_list,
             )
             if on_info:
                 on_info(info)
@@ -157,7 +179,7 @@ class MinMaxSearcher(Searcher):
                 score=score,
                 depth=depth,
                 nodes=self.nodes,
-                pv=pv,
+                pv=pv_list,
             )
 
             # forced mate confirmed, deeper search cannot find a better move

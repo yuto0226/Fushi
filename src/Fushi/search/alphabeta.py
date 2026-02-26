@@ -113,6 +113,7 @@ class AlphaBetaSearcher(Searcher):
         captures.sort(key=lambda m: mvv[m], reverse=True)
 
         for move in captures:
+            # TODO: Delta Pruning — if stand_pat + captured_piece_value + margin < alpha, skip
             self.nodes += 1
             board.push(move)
             score = -self._qsearch(board, -beta, -alpha)
@@ -180,26 +181,66 @@ class AlphaBetaSearcher(Searcher):
             score = self._qsearch(board, alpha, beta)
             return score, None
 
+        # TODO: Razoring — if depth == 1 and static_eval + RAZOR_MARGIN < alpha, return qsearch directly
+        # TODO: Futility Pruning — if depth <= 2 and static_eval + FUTILITY_MARGIN[depth] <= alpha, skip quiet moves
+        # TODO: Null Move Pruning — if not in_check and has non-pawn material, try null move at depth - R - 1
+
         # recurse
         best_score = -sys.maxsize
         best_pv = None
 
-        for move in self._order_moves(board, tt_entry):
+        # LMR: track whether we are currently in check before iterating moves.
+        # Avoid reducing when the side to move must escape check.
+        in_check = board.is_check()
+
+        for move_idx, move in enumerate(self._order_moves(board, tt_entry)):
             if stop_cond is not None and stop_cond():
                 break
 
             self.nodes += 1
 
+            is_capture = board.is_capture(move)
             board.push(move)
 
             # check extension
-            is_check = board.is_check()
-            ext = 1 if is_check and extensions < self._max_extensions else 0
+            is_check_after = board.is_check()
+            ext = 1 if is_check_after and extensions < self._max_extensions else 0
 
-            score, pv = self._dfs(
-                board, depth - 1 + ext, -beta, -alpha, extensions + ext
-            )
-            score = -score  # reverse opponent's relative score
+            # TODO: Futility Pruning (per-move) — skip quiet late moves when margin cannot raise alpha
+
+            # Late Move Reductions (LMR)
+            # Reduce depth for moves searched late in the list that are quiet,
+            # non-checking, and made from a non-check position.
+            # If the reduced search still beats alpha, re-search at full depth.
+            reduction = 0
+            if (
+                move_idx >= 3
+                and depth >= 3
+                and not is_capture
+                and not is_check_after  # don't reduce moves that give check
+                and not in_check  # don't reduce when escaping check
+                and ext == 0
+            ):
+                reduction = max(1, depth // 3)
+                score, pv = self._dfs(
+                    board,
+                    depth - 1 + ext - reduction,
+                    -alpha - 1,
+                    -alpha,
+                    extensions + ext,
+                )
+                score = -score
+                # Reduced search improved alpha — verify with full-depth re-search
+                if score > alpha:
+                    score, pv = self._dfs(
+                        board, depth - 1 + ext, -beta, -alpha, extensions + ext
+                    )
+                    score = -score
+            else:
+                score, pv = self._dfs(
+                    board, depth - 1 + ext, -beta, -alpha, extensions + ext
+                )
+                score = -score  # reverse opponent's relative score
 
             board.pop()
 
@@ -262,6 +303,8 @@ class AlphaBetaSearcher(Searcher):
             if self._should_stop():
                 break
 
+            # TODO: Aspiration Windows — search with a narrow window around prev_score;
+            #       re-search with wider window on fail-low / fail-high
             score, pv = self._dfs(board, depth, -sys.maxsize, sys.maxsize)
 
             pv_list = self._pv_to_list(pv)

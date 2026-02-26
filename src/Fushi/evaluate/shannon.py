@@ -84,20 +84,32 @@ class ShannonEvaluator(Evaluator):
         weakness += isolated
 
         blocked = 0
+        opponent = not color
         for square in pawns:
             if color == chess.WHITE:
                 front_square = square + 8
             else:
                 front_square = square - 8
 
-            if front_square >= 0 and front_square < 64:
-                if board.piece_at(front_square) is not None:
+            if 0 <= front_square < 64:
+                blocker = board.piece_at(front_square)
+                # Shannon's definition: a pawn is *blocked* when an *enemy*
+                # piece occupies the square directly in front of it.
+                # Own pieces forming a pawn chain are not a weakness.
+                if blocker is not None and blocker.color == opponent:
                     blocked += 1
         weakness += blocked
 
         return weakness
 
     def _evaluate_mobility(self, board: chess.Board) -> float:
+        # A null move is semantically illegal when in check (you cannot pass
+        # while your king is attacked).  python-chess won't raise but it would
+        # measure an artificially compressed mobility for the side in check,
+        # skewing the score.  Return neutral when the position is checked.
+        if board.is_check():
+            return 0.0
+
         if board.turn == chess.WHITE:
             white_mobility = board.legal_moves.count()
             board.push(chess.Move.null())

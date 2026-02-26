@@ -52,7 +52,7 @@ from Fushi.search import SearchInfo  # noqa: E402
 matplotlib.use("Agg")
 
 
-MAX_DEPTH: int = int(os.environ.get("MAX_DEPTH", "5"))
+MAX_DEPTH: int = int(os.environ.get("MAX_DEPTH", "25"))
 OUT_DIR: Path = Path(os.environ.get("OUT_DIR", str(_REPO_ROOT / "scripts" / "plots")))
 
 

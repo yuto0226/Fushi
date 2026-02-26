@@ -99,7 +99,11 @@ class TranspositionTable:
         self._age: int = 0
 
         # Diagnostic counters (reset each search via new_search).
+        self.probes: int = 0
         self.hits: int = 0
+        self.exact_hits: int = 0
+        self.lowerbound_hits: int = 0
+        self.upperbound_hits: int = 0
         self.stores: int = 0
 
     def probe(self, key: int) -> TTEntry | None:
@@ -110,9 +114,16 @@ class TranspositionTable:
         A *hit* requires that the stored full key equals *key* (type-2 collision
         check).
         """
+        self.probes += 1
         entry = self._table[key & self._mask]
         if entry is not None and entry.key == key:
             self.hits += 1
+            if entry.node_type == NodeType.EXACT:
+                self.exact_hits += 1
+            elif entry.node_type == NodeType.LOWERBOUND:
+                self.lowerbound_hits += 1
+            else:
+                self.upperbound_hits += 1
             return entry
         return None
 
@@ -160,7 +171,11 @@ class TranspositionTable:
         """Wipe all entries and reset age / counters."""
         self._table = [None] * self._num_entries
         self._age = 0
+        self.probes = 0
         self.hits = 0
+        self.exact_hits = 0
+        self.lowerbound_hits = 0
+        self.upperbound_hits = 0
         self.stores = 0
 
     def new_search(self) -> None:
@@ -173,7 +188,11 @@ class TranspositionTable:
         entries may still be probed and used until they are naturally evicted.
         """
         self._age += 1
+        self.probes = 0
         self.hits = 0
+        self.exact_hits = 0
+        self.lowerbound_hits = 0
+        self.upperbound_hits = 0
         self.stores = 0
 
     @property

@@ -12,8 +12,8 @@ from Fushi.evaluate import (
     PSTEvaluator,
     PhaseEvaluator,
     KingSafetyEvaluator,
-    PESTO_MG_TABLES,
-    PESTO_EG_TABLES,
+    FUSHI_MG_TABLES,
+    FUSHI_EG_TABLES,
 )
 from Fushi.book import PolyglotBookReader
 from Fushi.search import AlphaBetaSearcher, TranspositionTable, BookSearcher
@@ -28,14 +28,14 @@ def main():
         mg=WeightedEvaluator(
             [
                 (ShannonEvaluator(), 1.0),
-                (PSTEvaluator(PESTO_MG_TABLES), 1.0),
+                (PSTEvaluator(FUSHI_MG_TABLES), 1.0),
                 (KingSafetyEvaluator(), 2.0),
             ]
         ),
         eg=WeightedEvaluator(
             [
                 (ShannonEvaluator(), 1.0),
-                (PSTEvaluator(PESTO_EG_TABLES), 1.0),
+                (PSTEvaluator(FUSHI_EG_TABLES), 1.0),
             ]
         ),
     )

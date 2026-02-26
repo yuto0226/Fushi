@@ -27,8 +27,10 @@ from .shannon import ShannonEvaluator as ShannonEvaluator  # noqa: E402
 from .pst import (  # noqa: E402
     PSTEvaluator as PSTEvaluator,
     CLASSICAL_TABLES as CLASSICAL_TABLES,
-    PESTO_MG_TABLES as PESTO_MG_TABLES,
-    PESTO_EG_TABLES as PESTO_EG_TABLES,
+    FUSHI_MG_TABLES as FUSHI_MG_TABLES,
+    FUSHI_EG_TABLES as FUSHI_EG_TABLES,
+    PESTO_MG_TABLES as PESTO_MG_TABLES,  # deprecated alias
+    PESTO_EG_TABLES as PESTO_EG_TABLES,  # deprecated alias
 )
 from .king_safety import KingSafetyEvaluator as KingSafetyEvaluator  # noqa: E402
 
@@ -60,17 +62,17 @@ class PhaseEvaluator(Evaluator):
         from Fushi.evaluate import (
             PhaseEvaluator, WeightedEvaluator,
             ShannonEvaluator, PSTEvaluator,
-            PESTO_MG_TABLES, PESTO_EG_TABLES,
+            FUSHI_MG_TABLES, FUSHI_EG_TABLES,
         )
 
         eval = PhaseEvaluator(
             mg=WeightedEvaluator([
                 (ShannonEvaluator(), 1.0),
-                (PSTEvaluator(PESTO_MG_TABLES), 1.0),
+                (PSTEvaluator(FUSHI_MG_TABLES), 1.0),
             ]),
             eg=WeightedEvaluator([
                 (ShannonEvaluator(), 1.0),
-                (PSTEvaluator(PESTO_EG_TABLES), 1.0),
+                (PSTEvaluator(FUSHI_EG_TABLES), 1.0),
             ]),
         )
     """

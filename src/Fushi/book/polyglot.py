@@ -79,7 +79,7 @@ class PolyglotBookReader(BookReader):
                         combined[entry.move] = (
                             combined.get(entry.move, 0) + entry.weight
                         )
-            except OSError, KeyError:
+            except (OSError, KeyError):
                 continue
 
         # Filter to legal moves only (guards against castling encoding edge cases).

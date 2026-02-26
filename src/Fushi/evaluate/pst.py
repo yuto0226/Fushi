@@ -9,6 +9,27 @@ Lookup rules:
   White piece at square sq  →  table[sq ^ 56]   (flip rank)
   Black piece at square sq  →  table[sq]         (already mirrored)
 
+Fushi MG/EG tables, derived from PeSTO with the following modifications:
+
+  Bishop MG
+  ---------
+  - b4/b5 (pin bishop, Spanish/Nimzo):  5 → 20  (severely undervalued, caused
+    Black to prefer passive Bd6 over the tactically correct Bb4 pin)
+  - g4/g5 (active attacking bishop):    7 → 15  (undervalued vs passive squares)
+  - f4/f5 (London System / active):    12 → 20  (key active development square)
+  - d3/d6 (often a "bad bishop" spot): 15 →  8  (reduced to discourage bishop
+    placement in front of own center pawns)
+  - f3/f6 (knight's natural square):   27 → 14  (bishop PST was higher than
+    knight PST for the same square, causing incorrect piece placement)
+
+  King EG
+  -------
+  Replaced PeSTO's asymmetric king EG values with a clean radial gradient:
+  corners = -80, edges = −60 / −40 / −30, center (d4-e5) = +40.
+  Effect: the engine is strongly incentivised to centralise its own king while
+  simultaneously pushing the opponent's king toward the corners/edges to set
+  up mating nets.
+
 References:
   PeSTO tables – https://www.chessprogramming.org/PeSTO%27s_Evaluation_Function
 """
@@ -23,7 +44,7 @@ from . import Evaluator
 PieceSquareTables = dict[chess.PieceType, list[int]]
 
 # fmt: off
-_PESTO_MG: PieceSquareTables = {
+_FUSHI_MG: PieceSquareTables = {
     chess.PAWN: [
           0,   0,   0,   0,   0,   0,   0,   0,
          98, 134,  61,  95,  68, 126,  34, -11,
@@ -48,9 +69,9 @@ _PESTO_MG: PieceSquareTables = {
         -29,   4, -82, -37, -25, -42,   7,  -8,
         -26,  16, -18, -13,  30,  59,  18, -47,
         -16,  37,  43,  40,  35,  50,  37,  -2,
-         -4,   5,  19,  50,  37,  37,   7,  -2,
-         -6,  13,  13,  26,  34,  12,  10,   4,
-          0,  15,  15,  15,  14,  27,  18,  10,
+         -4,  20,  19,  50,  37,  37,  15,  -2,  # b5/b4 pin: 5→20; g5/g4 active: 7→15
+         -6,  13,  13,  26,  34,  20,  10,   4,  # f4/f5 London/active: 12→20
+          0,  15,  15,   8,  14,  14,  18,  10,  # d3/d6 passive: 15→8; f3/f6 knight sq: 27→14
           4,  15,  16,   0,   7,  21,  33,   1,
         -33,  -3, -14, -21, -13, -12, -39, -21,
     ],
@@ -86,7 +107,7 @@ _PESTO_MG: PieceSquareTables = {
     ],
 }
 
-_PESTO_EG: PieceSquareTables = {
+_FUSHI_EG: PieceSquareTables = {
     chess.PAWN: [
           0,   0,   0,   0,   0,   0,   0,   0,
         178, 173, 158, 134, 147, 132, 165, 187,
@@ -138,27 +159,36 @@ _PESTO_EG: PieceSquareTables = {
         -33, -28, -22, -43,  -5, -32, -20, -41,
     ],
     chess.KING: [
-        -74, -35, -18, -18, -11,  15,   4, -17,
-        -12,  17,  14,  17,  17,  38,  23,  11,
-         10,  17,  23,  15,  20,  45,  44,  13,
-         -8,  22,  24,  27,  26,  33,  26,   3,
-        -18,  -4,  21,  24,  27,  23,   9, -11,
-        -19,  -3,  11,  21,  23,  16,   7,  -9,
-        -27, -11,   4,  13,  14,   4,  -5, -17,
-        -53, -34, -21, -11, -28, -14, -24, -43,
+        # Radial gradient: corners = -80, edges taper to 0, centre = +40.
+        # A king forced to the corner suffers a large penalty; a centralised
+        # king earns a large bonus.  The same table is used for both sides
+        # (via the sq^56 flip), so the opponent is equally punished for
+        # retreating to the corner while our king marches to the centre.
+        -80, -60, -40, -30, -30, -40, -60, -80,  # rank 8
+        -60, -30,   0,  10,  10,   0, -30, -60,  # rank 7
+        -40,   0,  20,  30,  30,  20,   0, -40,  # rank 6
+        -30,  10,  30,  40,  40,  30,  10, -30,  # rank 5
+        -30,  10,  30,  40,  40,  30,  10, -30,  # rank 4
+        -40,   0,  20,  30,  30,  20,   0, -40,  # rank 3
+        -60, -30,   0,  10,  10,   0, -30, -60,  # rank 2
+        -80, -60, -40, -30, -30, -40, -60, -80,  # rank 1
     ],
 }
 
 # fmt: on
 
-#: PeSTO middlegame tables – strong all-round choice for the opening/middlegame.
-PESTO_MG_TABLES: PieceSquareTables = _PESTO_MG
+#: Fushi middlegame tables.
+FUSHI_MG_TABLES: PieceSquareTables = _FUSHI_MG
 
-#: PeSTO endgame tables – used together with PESTO_MG_TABLES via PhaseEvaluator.
-PESTO_EG_TABLES: PieceSquareTables = _PESTO_EG
+#: Fushi endgame tables – used together with FUSHI_MG_TABLES via PhaseEvaluator.
+FUSHI_EG_TABLES: PieceSquareTables = _FUSHI_EG
 
 #: Alias for a sensible default single-phase table set.
-CLASSICAL_TABLES: PieceSquareTables = _PESTO_MG
+CLASSICAL_TABLES: PieceSquareTables = _FUSHI_MG
+
+# Backwards-compatible aliases (deprecated, prefer FUSHI_* names).
+PESTO_MG_TABLES = FUSHI_MG_TABLES
+PESTO_EG_TABLES = FUSHI_EG_TABLES
 
 _PHASE_WEIGHTS: dict[chess.PieceType, int] = {
     chess.QUEEN: 4,

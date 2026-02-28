@@ -1,5 +1,3 @@
-import sys
-
 import chess
 
 from . import Evaluator, PIECE_VALUES
@@ -27,9 +25,9 @@ class ShannonEvaluator(Evaluator):
             Absolute score (positive for White, negative for Black).
         """
         if board.is_checkmate():
-            return -sys.maxsize if board.turn == chess.WHITE else sys.maxsize
+            return -100_000 if board.turn == chess.WHITE else 100_000
 
-        if board.is_stalemate() or board.is_insufficient_material():
+        if board.is_game_over() or board.can_claim_draw():
             return 0
 
         score = 0.0
@@ -98,15 +96,20 @@ class ShannonEvaluator(Evaluator):
         return weakness
 
     def _evaluate_mobility(self, board: chess.Board) -> float:
+        white_mobility = 0
+        black_mobility = 0
+
         if board.turn == chess.WHITE:
             white_mobility = board.legal_moves.count()
-            board.push(chess.Move.null())
-            black_mobility = board.legal_moves.count()
-            board.pop()
+            if not board.is_check():
+                board.push(chess.Move.null())
+                black_mobility = board.legal_moves.count()
+                board.pop()
         else:
             black_mobility = board.legal_moves.count()
-            board.push(chess.Move.null())
-            white_mobility = board.legal_moves.count()
-            board.pop()
+            if not board.is_check():
+                board.push(chess.Move.null())
+                white_mobility = board.legal_moves.count()
+                board.pop()
 
         return float(white_mobility - black_mobility)

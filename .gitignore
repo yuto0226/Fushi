@@ -10,3 +10,5 @@ wheels/
 .venv
 # Opening book binary files (download separately, see books/README.md)
 books/*.bin
+
+old_engine

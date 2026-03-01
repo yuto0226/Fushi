@@ -3,7 +3,7 @@ import time
 
 import chess
 
-from Fushi.evaluate import Evaluator
+from Fushi.evaluate import PIECE_VALUES, Evaluator
 
 from . import InfoCallback, SearchInfo, SearchResult, Searcher, StopCondition
 from .tt import NodeType, TranspositionTable, zobrist_hash
@@ -35,6 +35,35 @@ class AlphaBetaSearcher(Searcher):
         score = self._evaluator.evaluate(board)
         return score if board.turn == chess.WHITE else -score
 
+    def _score_move(
+        self, board: chess.Board, move: chess.Move, hash_move: chess.Move | None
+    ) -> int:
+        """score a move for order moves sorting"""
+        if move == hash_move:
+            return 1_000_000
+
+        score = 0
+
+        if board.is_capture(move):
+            attacker_piece = board.piece_type_at(move.from_square)
+
+            if board.is_en_passant(move):
+                victim_piece = chess.PAWN
+            else:
+                victim_piece = board.piece_type_at(move.to_square)
+
+            if victim_piece is not None and attacker_piece is not None:
+                score += (
+                    10000
+                    + (PIECE_VALUES[victim_piece] * 10)
+                    - PIECE_VALUES[attacker_piece]
+                )
+
+        if move.promotion:
+            score += PIECE_VALUES[move.promotion] * 1000
+
+        return score
+
     def _order_moves(self, board: chess.Board, tt_entry: object) -> list[chess.Move]:
         """Return legal moves with the TT hash move sorted first, if available."""
         moves = list(board.legal_moves)
@@ -44,9 +73,7 @@ class AlphaBetaSearcher(Searcher):
             if tt_entry.best_move in board.legal_moves:  # type: ignore[union-attr]
                 hash_move = tt_entry.best_move  # type: ignore[union-attr]
 
-        if hash_move is not None:
-            moves.remove(hash_move)
-            moves.insert(0, hash_move)
+        moves.sort(key=lambda m: self._score_move(board, m, hash_move), reverse=True)
 
         return moves
 

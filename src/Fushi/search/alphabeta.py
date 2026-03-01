@@ -84,6 +84,7 @@ class AlphaBetaSearcher(Searcher):
         alpha: int,
         beta: int,
         extensions: int = 0,
+        allow_nmp: bool = True,
     ) -> tuple[int, list[chess.Move]]:
         original_alpha = alpha
 
@@ -105,11 +106,57 @@ class AlphaBetaSearcher(Searcher):
                 return tt_entry.score, pv
 
         # leaf node
-        if depth == 0 or board.is_game_over():
+        # In python-chess, `board.is_game_over()` calls `is_fivefold_repetition()`,
+        # which reconstructs history. If Null moves are in the stack, it causes a RecursionError.
+        # So we only check `is_checkmate()`, `is_stalemate()`, and halfmove_clock.
+        game_over = (
+            board.is_checkmate()
+            or board.is_stalemate()
+            or board.is_seventyfive_moves()
+            or board.is_insufficient_material()
+        )
+        if depth <= 0 or game_over:
             score = self._relative_score(board)
             if self._tt is not None:
                 self._tt.store(key, depth, score, NodeType.EXACT)
             return score, []
+
+        is_check = board.is_check()
+
+        # Null Move Pruning
+        # NMP is generally disabled at the root node (alpha = -max, beta = max)
+        # and we only apply it if depth remaining is at least 3 (or 2 for aggressive NMP).
+        # We will use depth >= 2 to make it trigger during a depth 3 search
+        # Prevent consecutive null moves
+        prev_move = board.peek() if board.move_stack else None
+        if (
+            allow_nmp
+            and depth >= 2
+            and not is_check
+            and beta < sys.maxsize
+            and prev_move != chess.Move.null()
+        ):
+            # do not do NMP if we only have pawns (zugzwang)
+            non_pawn_pieces = (
+                board.occupied_co[board.turn] & ~board.kings & ~board.pawns
+            )
+
+            if non_pawn_pieces:
+                R = 2
+                board.push(chess.Move.null())
+                nmp_score, _ = self._dfs(
+                    board,
+                    depth - 1 - R,
+                    -beta,
+                    -beta + 1,
+                    extensions=0,
+                    allow_nmp=False,
+                )
+                nmp_score = -nmp_score
+                board.pop()
+
+                if nmp_score >= beta:
+                    return beta, []
 
         # recurse
         best_score = -sys.maxsize
@@ -128,7 +175,7 @@ class AlphaBetaSearcher(Searcher):
             ext = 1 if is_check and extensions < self._max_extensions else 0
 
             score, pv = self._dfs(
-                board, depth - 1 + ext, -beta, -alpha, extensions + ext
+                board, depth - 1 + ext, -beta, -alpha, extensions + ext, allow_nmp=True
             )
             score = -score  # reverse opponent's relative score
 
